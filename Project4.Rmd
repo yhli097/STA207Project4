@@ -41,6 +41,7 @@ library(rpart)
 library(partykit)
 library(pROC)
 library(latticeExtra)
+library(caret)
 ```
 # Introduction
 ## Background
@@ -87,6 +88,70 @@ The dataset is downloaded from UCI Machine Learning Repository and is related to
  
 By description, `duration` should only be included for benchmark purposes and should be discarded if the intention is to have a realistic predictive model. So this attribute highly affects the output target. More than 95% values in `pdays` are 999, which means client was not previously contacted. Only 3 cases are `yes` in `default`, and more than 20% are unknown. So we remove these three variables. 
 
+## Predictive Model
+
+To predict, given the seventeen features, if the bank term deposit would be or
+not subscribed, we used logistic regression and random forest. As mentioned before, the BMD consists of 41188 observations. A random sample of 10% of this size, 4119 observations, was withdrawn to be used as a test dataset. The rest, 37069 observations, was used as a train dataset.
+
+### Logistic Regression
+
+The GLM is a flexible generalization of ordinary linear regression that allows
+responses with error distribution models other than a normal distribution. The GLM
+generalizes linear regression by allowing the linear model to be related to the
+response via a link function. In a GLM each outcome \(Y\) of the response is
+assumed to be generated from a particular distribution in the exponential family,
+a large range of probability distributions. The mean, \(\mu\), of the distribution
+depends on the features, \(X\), through: \({\rm E}(Y) = \boldsymbol{\mu} = g^{-1}(X \boldsymbol{\beta})\), where \({\rm E}(Y)\) is the expected value of \(Y\); \(X \boldsymbol{\beta}\) is the linear predictor, a linear combination of unknown parameters
+\(\boldsymbol{\beta}\); \(g\) is the link function. The unknown parameters,
+\(\boldsymbol{\beta}\), are typically estimated with maximum likelihood.
+
+When the response data, \(Y\), are binary (taking on only values 0 and 1), the
+distribution function is generally chosen to be the Bernoulli distribution and the
+interpretation of \(\mu_{i}\) is then the probability, \(p\), of \(Y_{i}\) taking
+on the value one. The logit \(g(p) = \ln \left({p \over 1 - p} \right)\) is the canonical link function and when used the resulting model is called of logistic regression. 
+
+To test the significance of the features we use the Akaike information criterion
+(AIC). Given a collection of models, the AIC estimates the quality of each model,
+relative to each of the other models. Thus, AIC provides a means for model 
+selection.
+
+### Random Forest
+
+Random forests are an ensemble learning method that operate by constructing a
+multitude of decision trees at training time and outputting the class that is the
+mode of the classes (classification) or mean prediction (regression) of the
+individual trees. Random decision forests correct for decision trees' habit of
+overfitting to their training set.
+
+Random forests differ in only one way from tree bagging: they use a modified tree
+learning algorithm that selects, at each candidate split in the learning process,
+a random subset of the features. Tree bagging repeatedly selects a random sample
+with replacement of the training set and fits trees to these samples. This
+bootstrapping procedure leads to better model performance because it decreases the
+variance of the model, without increasing the bias. More details about can be see,
+for example, in https://en.wikipedia.org/wiki/Random_forest.
+
+In R, the main implementation of random forest is found in the
+randomForest library [randomForest].
+
+## Comparison
+
+The main measure that can be used to compare different algorithms is the
+Receiver Operating Characteristic curve, i.e. ROC curve. A graphical plot that
+illustrates the diagnostic ability of a binary classifier system as its
+discrimination threshold is varied. The ROC curve is created by plotting the 
+specificity, true negative rate, against the sensitivity, true positive rate, at
+various threshold settings. In R, the main implementation of the ROC curve is found in the pROC library [pROC].
+
+When dealing with ROC curves the main measure returned is the Area Under the Curve
+(AUC), that is qual to the probability that a classifier will rank a randomly
+chosen positive instance higher than a randomly chosen negative one. 
+
+
+# Results 
+
+## Descriptive Analysis
+
 ```{r}
 library(data.table)
 temp <- tempfile()
@@ -117,10 +182,6 @@ data <- data[ , -c(5, 11, 13)]
 ```
 
 
-
-# Results 
-
-## Descriptive Analysis
 ```{r}
 quant <- data[ , c(1, 10, 11, 13:17)]
 pairs(quant
@@ -154,7 +215,7 @@ and number of employees. To avoid high collinearlity, we only remain `nr.employe
 ```{r}
 data <- data[,-c(16,19)]
 ```
-```{r,fig.width=9, fig.height=9}
+```{r,fig.width=9, fig.height=8}
 barras <- function(variable, nome, limite) {
   da = table(variable)
   barchart(sort(da)
@@ -203,27 +264,80 @@ that most of the clients have a nonexistent previous marketing campaign
 (`poutcome` feature), that they are married (`marital` feature) and
 that most have a `job` in the administrative sector.
 
-## Logistic Model
+
+## Logistic Regression
 
 ```{r}
-set.seed(207)
+set.seed(0228)
 #choose 10% as test data
 id <- sample(1:nrow(data), round(nrow(data) / 10, 0))
 
 train <- data[-id, ] ; test <- data[id, ]
 ```
 
-```{r, results='hide'}
+```{r, cache = TRUE, results='hide'}
 logist <- glm(y ~ ., family = binomial, train) ; logist <- stepAIC(logist)
 ```
-```{r}
+```{r, results='hide'}
 summary(logist)
 ```
+
+```{r}
+logist.pred<-predict(logist,test,"response")
+logist.pred<-as.factor(ifelse(logist.pred<=0.5, "no", "yes"))
+# Confusion matrix
+confusionMatrix(logist.pred, test$y)
+```
+
+Accuracy : 0.9048; Sensitivity : 0.9808; Specificity : 0.2357.
+
 ## Model Diagnostics
 
+## Random Forest
+
+```{r}
+bag <- randomForest(x = train[, -17], y = train[ , 17], importance = FALSE)
+```
+
+```{r}
+bag.pred<-predict(bag, test)
+# Confusion matrix
+confusionMatrix(bag.pred, test$y)
+```
+Accuracy : 0.8992; Sensitivity : 0.9654; Specificity : 0.3167.
+
+```{r,,fig.width=8, fig.height=3}
+par(mfrow = c(1, 2))
+# ---------------------------------------------------------- logistic regression #
+plot.roc(roc(test$y, predict(logist, test, type = "response"))
+         , main = "Logistic"
+         #, print.thres = TRUE
+         , print.auc = TRUE, print.auc.cex = 1.25, print.auc.adj = c(.5, 3)
+         , auc.polygon = TRUE, max.auc.polygon = TRUE)
+
+
+# ------------------------------------------------------------ --- random forest #
+plot.roc(roc(test$y, as.numeric(predict(bag, test)))
+         , main = "Random forest"
+         #, print.thres = TRUE
+         , print.auc = TRUE, print.auc.cex = 1.25, print.auc.adj = c(.5, 3)
+         , auc.polygon = TRUE, max.auc.polygon = TRUE)
+
+```
+**Figure.3 ROC curve for each model (in the test) with respective AUC and thresholds.**
 
 
 # Discussion
+
+Keep a feature means that the feature was statistically significant,
+in describing the difference between the classes of the desired target - if the
+bank term deposit would be or not subscribed. Logistic regression model finished with nine, from fifteen features. This are the
+dropped, nonsignificant in describing the difference between classes, features in
+all models: `age`, `marital` status, `education`,
+`housing` loan, personal `loan`, and `previous` number of
+contacts performed before this campaign and for this client.
+
+Looking by the AUC, Figure 3, logistic regression is better than random forest. 
 
 
 \pagebreak
@@ -231,6 +345,10 @@ summary(logist)
 # Appendix. Reference
 
 [1] [Moro et al., 2014] S. Moro, P. Cortez and P. Rita. A Data-Driven Approach to Predict the Success of Bank Telemarketing. Decision Support Systems, Elsevier, 62:22-31, June 2014
+
+[randomForest] Liaw, A. & Wiener M. (2002). Classification and Regression by randomForest. R News 2(3), 18--22. http://CRAN.R-project.org/doc/Rnews/.
+
+[pROC] Robin, X., Turck, N., Hainard, etc. (2011). pROC: an open-source package for R and S+ to analyze and compare ROC curves. BMC Bioinformatics, 12, p. 77. DOI: 10.1186/1471-2105-12-77. http://www.biomedcentral.com/1471-2105/12/77/.
 
 # Appendix II. Group Partners
 
