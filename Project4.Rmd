@@ -1,0 +1,248 @@
+---
+title: "Project 4: Bank Marketing"
+output:
+  pdf_document:
+    number_sections: TRUE
+  html_document:
+    number_sections: TRUE
+date: "02/28/2020"
+---
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 18px;
+  }
+</style>
+```{r setup, include=FALSE}
+library(knitr)
+
+opts_chunk$set(size='small'
+               , cache=TRUE
+               , cache.path='cache/'
+               , comment=NA
+               , warning=FALSE
+               , message=FALSE
+               , fig.align='center'
+               , dpi=100
+               , fig.path='figure/'
+               , fig.pos='H'
+               , background='#ffffff'
+               , results='hold'
+               , fig.show='hold'
+               , echo=FALSE)
+```
+```{r}
+library(MASS)
+library(e1071)
+library(klaR)
+library(FNN)
+library(randomForest)
+library(rpart)
+library(partykit)
+library(pROC)
+library(latticeExtra)
+```
+# Introduction
+## Background
+
+
+
+## Statistical questions of interest
+
+
+
+# Analysis Plan
+
+## Population and study design
+
+The dataset is downloaded from UCI Machine Learning Repository and is related to direct marketing campaigns of a Portuguese Banking institution. These campaigns were based on phone calls. Often, more than one calls were done to the same client to access if their product “term deposit” will be subscribed (yes) or not subscribed(no). This dataset is available at http://archive.ics.uci.edu/ml/datasets/Bank+Marketing. There were 4 datasets in it from which bank-additional-full.csv is used that has all examples (41188) and 20 inputs ordered by date (from May 2008 to November 2010). There are 20 input variables and 1 output variable (desired target).  These dataset attributes denote customer data, socio-economic data, telemarketing data and some other data. Some attributes are numerical, and some are categorical. The dataset was loaded in R Studio and checked for any missing values using is.na function and found that it didn’t have any missing values, so we have a clean dataset. 
+
+## Descriptive Analysis
+
+**Table.1 Features description of the Bank Marketing Dataset (BMD).**  
+
+| Feature | Description | Attribution |
+|------|----------------------|-----|
+|`y`| Desired target. Has the client subscribed a term deposit?   | binary |  
+|`age`|  Client Age | numeric |
+|`job`|  Type of Job | categorical |  
+|`marital `|  Client’s marital status | categorical |  
+|`education`|  Client’s education | categorical |  
+|`default`| Has credit in default? | categorical |
+|`housing`| Has housing loan? | categorical |
+|`loan`| Has personal loan? | categorical |
+|`contact`| Last contact month of year | categorical |
+|`month`| Month of last contact with client | categorical |
+|`day_of_week`| Last contact day of the week | categorical |
+|`duration`| last contact duration, in seconds |  numeric |
+|`campaign`| Number of contacts performed during this campaign and for this client | categorical |
+|`pdays`| Number of days that passed by after the client was last contacted from a previous campaign | numeric |
+|`previous`| Number of client contacts performed before this campaign | numeric |
+|`poutcome`| Outcome of the previous marketing campaign | categorical |
+|`emp.var.rate`| Quarterly employment variation rate | numeric |
+|`cons.price.idx`| Monthly consumer price index | numeric |
+|`cons.conf.idx`| Monthly consumer confidence index | numeric |
+|`euribor3m`| Daily euribor 3-month rate | numeric |
+|`nr.employed`| Quarterly number of employees | numeric |
+ 
+By description, `duration` should only be included for benchmark purposes and should be discarded if the intention is to have a realistic predictive model. So this attribute highly affects the output target. More than 95% values in `pdays` are 999, which means client was not previously contacted. Only 3 cases are `yes` in `default`, and more than 20% are unknown. So we remove these three variables. 
+
+```{r}
+library(data.table)
+temp <- tempfile()
+download.file('https://archive.ics.uci.edu/ml/machine-learning-databases/00222/bank-additional.zip', temp)
+data  <- read.table(unzip(zipfile = temp, 
+                                     files = 'bank-additional/bank-additional-full.csv', 
+                                     junkpaths = TRUE), header = TRUE, sep = ';')
+#Using Local Dataset location
+#data <- read.csv(file="./bank-additional-full.csv", header=TRUE, sep=";")
+```
+```{r, results='hide'}
+#summary of data
+dim(data)
+names(data)
+
+#summary before cleaning
+str(data)
+summary(data)
+
+# Check for any missing values:
+sum(is.na(data))
+
+sum(data$default=="unknown")/dim(data)[1]
+```
+
+```{r}
+data <- data[ , -c(5, 11, 13)]
+```
+
+
+
+# Results 
+
+## Descriptive Analysis
+```{r}
+quant <- data[ , c(1, 10, 11, 13:17)]
+pairs(quant
+      , upper.panel = function(x, y, ...) {
+        usr <- par("usr") ; on.exit(par(usr)) ; par(usr = c(0, 1, 0, 1))
+        r <- cor(x, y)
+        txt <- format(c(r, 0.123456789), digits = 2)[1]
+        text(.5, .5, txt, cex = 1.25)
+      }
+      , diag.panel = function(a, b, ...) {
+        usr <- par("usr") ; on.exit(par(usr)) ; par(usr = c(0, 1, 0, 1))
+        rect(0, 0, 1, 1, col = "#37B9DA")
+      }
+      , pch = 19, gap = .25, xaxt = "n", yaxt = "n"
+      , col = c("#0080FF", "#F3953E")[data$y]
+      , label.pos = .5, oma = c(1, 1, 1, 1))
+```
+
+
+**Figure.1 Scatterplot lower triangular matrix and correlation upper triangular matrix for all the quantitative features presented in the Bank Marketing Dataset (BMD).**
+
+In Figure 1 we see the scatterplots and correlations, two-by-two,
+for all the eight numerical features in the BMD. In more than half of them we see
+a random behaviour, that is also described by a correlation close to zero or
+between the interval -0.3 and 0.3. A (very) strong (and positive) correlation is
+seen in three cases. `emp.var.rate` vs. `euribor3m` (cor. 0.97),
+`euribor3m` vs. `nr.employed` (cor. 0.95), and
+`emp.var.rate` vs. `nr.employed` (cor. 0.91), i.e., involving only
+three features - employment variation rate, Euro Interbank Offered Rate (Euribor)
+and number of employees. To avoid high collinearlity, we only remain `nr.employed` to analysis.
+```{r}
+data <- data[,-c(16,19)]
+```
+```{r,fig.width=9, fig.height=9}
+barras <- function(variable, nome, limite) {
+  da = table(variable)
+  barchart(sort(da)
+           , col = "orange"
+           , border = "transparent"
+           , xlab = NULL
+           , main = nome
+           , scales = list(x = list(draw = FALSE))
+           , xlim = limite
+           , panel = function(...){
+             panel.barchart(...)
+             args <- list(...)
+             panel.text(args$x, args$y, args$x, pos = 4, cex = .8)})
+}
+print(barras(data$job, "job", c(0, 15e3)),
+      position = c(0, 3/4, 1/3, 1), more = TRUE)
+print(barras(data$marital, "marital", c(0, 33e3)),
+      position = c(1/3, 3/4, 2/3, 1), more = TRUE)
+print(barras(data$education, "education", c(0, 19e3)),
+      position = c(2/3, 3/4, 1, 1), more = TRUE)
+print(barras(data$housing, "housing", c(0, 28e3)),
+      position = c(0, 2/4, 1/3, 3/4), more = TRUE)
+print(barras(data$loan, "loan", c(0, 44e3)),
+      position = c(1/3, 2/4, 2/3, 3/4), more = TRUE)
+print(barras(data$contact, "contact", c(0, 35e3)),
+      position = c(2/3, 2/4, 1, 3/4), more = TRUE)
+print(barras(data$month, "month", c(0, 18e3)),
+      position = c(0, 1/4, 1/3, 2/4), more = TRUE)
+print(barras(data$day_of_week, "day_of_week", c(0, 11e3)),
+      position = c(1/3, 1/4, 2/3, 2/4), more = TRUE)
+print(barras(data$poutcome, "poutcome", c(0, 47e3)),
+      position = c(2/3, 1/4, 1, 2/4), more = TRUE)
+print(barras(data$y, "y", c(0, 46e3)),
+      position = c(1/3, 0, 2/3, 1/4))
+```
+
+**Figure.2 Bar plots for all the qualitative features presented in the Bank Marketing Dataset (BMD).**
+
+Already in Figure 2 we have the frequencies for each level of the
+categorical features in the BMD. First, we see that the desired target is 
+unbalanced, with more than 85% of the observations corresponding to clients that
+didn't subscribed to a term deposit. An equilibrium between levels is only present
+in the `day.of.week` last contact feature. By this Figure we can also see
+that the last contact of most of the clients was in may (`month` feature),
+that most of the clients have a nonexistent previous marketing campaign
+(`poutcome` feature), that they are married (`marital` feature) and
+that most have a `job` in the administrative sector.
+
+## Logistic Model
+
+```{r}
+set.seed(207)
+#choose 10% as test data
+id <- sample(1:nrow(data), round(nrow(data) / 10, 0))
+
+train <- data[-id, ] ; test <- data[id, ]
+```
+
+```{r, results='hide'}
+logist <- glm(y ~ ., family = binomial, train) ; logist <- stepAIC(logist)
+```
+```{r}
+summary(logist)
+```
+## Model Diagnostics
+
+
+
+# Discussion
+
+
+\pagebreak
+
+# Appendix. Reference
+
+[1] [Moro et al., 2014] S. Moro, P. Cortez and P. Rita. A Data-Driven Approach to Predict the Success of Bank Telemarketing. Decision Support Systems, Elsevier, 62:22-31, June 2014
+
+# Appendix II. Group Partners
+
+This Document is the project 3 of Team 7 in STA 207, Winter 2020.
+
+1. Bingdao Chen bdchen@ucdavis.edu contribution: descriptive analysis and model establishment
+
+2. Yahui Li yhuli@ucdavis.edu contribution: casual inference and conclusion
+
+3. Zihan Wang zihwang@ucdavis.edu contribution: fixed effects model
+
+4. Jian Shi jnshi@ucdavis.edu contribution: model diagnose
+
+The repository in Github is on https://github.com/yhli097/STA207Project4.git
+

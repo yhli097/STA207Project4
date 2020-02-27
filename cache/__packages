@@ -1,0 +1,15 @@
+base
+knitr
+MASS
+e1071
+klaR
+FNN
+randomForest
+rpart
+libcoin
+mvtnorm
+partykit
+pROC
+lattice
+latticeExtra
+data.table
