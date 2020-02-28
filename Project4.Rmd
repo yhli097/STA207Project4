@@ -44,6 +44,7 @@ library(pROC)
 library(latticeExtra)
 library(caret)
 library(broom)
+library(ggcorrplot)
 ```
 # Introduction
 ## Background
@@ -57,7 +58,6 @@ The dataset is downloaded from UCI Machine Learning Repository and is related to
 Our main goal is to build prediction models based on the data set to predict response variables, which a customer would subscribe bank long-term deposit or not. Based on all 20 variables from the data set, we need to select the variables by stepwise method to build models. After that, we divide the data into training data and test data. We will fit two models through training data, including logistics regression model and random forest, respectively. Then, we will test the models on test data. Our interest in this project is to calculate the prediction accuracy of these two models and compare the gap performance of the two models. 
 
 # Analysis Plan
-
 
 ## Descriptive Analysis
 
@@ -102,18 +102,14 @@ $${\displaystyle \log{\frac{p}{1-p}}=\beta_{0}+\beta_{1}x_{1}+\beta_{2}x_{2}+\cd
 
 where $p(x)$ is the probability that the dependent variable equals a case, given some linear combination of the predictors; $x_i, i=1,\cdots,n$ is the predict variables; $\beta_{0}$ is the intercept from the linear regression equation and $\beta_i, i=1,\cdots,n$ is the regression coefficient.
 
-- The outcome is a binary or dichotomous variable like yes vs no, positive vs negative, 1 vs 0.
-
-- There is no influential values (extreme values or outliers) in the continuous predictors.
-
-- There is no high intercorrelations (i.e. multicollinearity) among the predictors.
+Model assumptions: (1) The outcome is a binary or dichotomous variable like yes vs no, positive vs negative, 1 vs 0; (2) There is no influential values (extreme values or outliers) in the continuous predictors; (3) There is no high intercorrelations (i.e. multicollinearity) among the predictors.
 
 To test the significance of the features we use the Akaike information criterion
 (AIC). Given a collection of models, the AIC estimates the quality of each model,
 relative to each of the other models. Thus, AIC provides a means for model 
 selection.
 
-## Model Diagnostic
+### Model Diagnostic
 
 According to the assumptions of the logistic model, we will first check if the outcome is binary. Influential values are extreme individual data points that can alter the quality of the logistic regression model. So, Cook's Distance plot and Studentized Residual plot will be figured to find whether there are influential values and outliers in the dataset. Finally, Multicollinearity will be considered by VIF values becuase it corresponds to a situation where the data contain highly correlated predictor variables.
 
@@ -130,11 +126,7 @@ learning algorithm that selects, at each candidate split in the learning process
 a random subset of the features. Tree bagging repeatedly selects a random sample
 with replacement of the training set and fits trees to these samples. This
 bootstrapping procedure leads to better model performance because it decreases the
-variance of the model, without increasing the bias. More details about can be see,
-for example, in https://en.wikipedia.org/wiki/Random_forest.
-
-In R, the main implementation of random forest is found in the
-randomForest library [randomForest].
+variance of the model, without increasing the bias. In R, the main implementation of random forest is found in the randomForest library [randomForest].
 
 ## Comparison
 
@@ -176,7 +168,6 @@ summary(data)
 # Check for any missing values:
 sum(is.na(data))
 
-sum(data$default=="unknown")/dim(data)[1]
 ```
 
 ```{r}
@@ -184,40 +175,22 @@ data <- data[ , -c(5, 11, 13)]
 ```
 
 
-```{r}
-quant <- data[ , c(1, 10, 11, 13:17)]
-pairs(quant
-      , upper.panel = function(x, y, ...) {
-        usr <- par("usr") ; on.exit(par(usr)) ; par(usr = c(0, 1, 0, 1))
-        r <- cor(x, y)
-        txt <- format(c(r, 0.123456789), digits = 2)[1]
-        text(.5, .5, txt, cex = 1.25)
-      }
-      , diag.panel = function(a, b, ...) {
-        usr <- par("usr") ; on.exit(par(usr)) ; par(usr = c(0, 1, 0, 1))
-        rect(0, 0, 1, 1, col = "#37B9DA")
-      }
-      , pch = 19, gap = .25, xaxt = "n", yaxt = "n"
-      , col = c("#0080FF", "#F3953E")[data$y]
-      , label.pos = .5, oma = c(1, 1, 1, 1))
+```{r,fig.width=8, fig.height=2.5}
+quant <- cor(data[ , c(1, 10, 11, 13:17)])
+
+ggcorrplot(quant, hc.order = TRUE, type = "lower", outline.color = "white",
+ggtheme = ggplot2::theme_gray, colors = c("#6D9EC1", "white", "#E46726"))
 ```
 
 
-**Figure.1 Scatterplot lower triangular matrix and correlation upper triangular matrix for all the quantitative features presented in the Bank Marketing Dataset (BMD).**
+**Figure.1 correlation matrix for all the quantitative features presented in the Bank Marketing Dataset (BMD).**
 
-In Figure 1 we see the scatterplots and correlations, two-by-two,
-for all the eight numerical features in the BMD. In more than half of them we see
-a random behaviour, that is also described by a correlation close to zero or
-between the interval -0.3 and 0.3. A (very) strong (and positive) correlation is
-seen in three cases. `emp.var.rate` vs. `euribor3m` (cor. 0.97),
-`euribor3m` vs. `nr.employed` (cor. 0.95), and
-`emp.var.rate` vs. `nr.employed` (cor. 0.91), i.e., involving only
-three features - employment variation rate, Euro Interbank Offered Rate (Euribor)
-and number of employees. To avoid high collinearlity, we only remain `nr.employed` to analysis.
+In Figure 1 we see the two-by-two correlations for all the eight numerical features in the BMD. There are high correlation among `emp.var.rate`, `euribor3m` and `nr.employed`. To avoid high collinearlity, we only remain `nr.employed` for analysis.
+
 ```{r}
 data <- data[,-c(16,19)]
 ```
-```{r,fig.width=9, fig.height=8}
+```{r,fig.width=9, fig.height=6}
 barras <- function(variable, nome, limite) {
   da = table(variable)
   barchart(sort(da)
@@ -295,16 +268,11 @@ confusionMatrix(logist.pred, test$y)
 
 ## Model Diagnostics
 
-
-### Binary outcome
-
 Our desired target `y` means that whether the client has subscribed a term deposit or not. Therefore, the outcome satisfies the binary outcome assumption.  
-
-### Influential values
 
 Influential values are extreme individual data points that can alter the quality of the logistic regression model. The Cook's distances are much smaller than 1, meaning that there is not influential case in the dataset. To check whether the data contains potential outliers, the standardized residual error can be inspected. If an observation has an externally studentized residual that is larger than 3 (in absolute value), we can call it an outlier. Therefore, from the plot, we can verify that there is none outliers in the dataset [olsrr].
 
-```{r}
+```{r, fig.width=8, fig.height=3}
 par(mfrow=c(1,2))
 plot(logist, which = 4, id.n = 15)
 model.data <- augment(logist) %>% 
@@ -312,19 +280,18 @@ model.data <- augment(logist) %>%
 plot(model.data$.fitted, model.data$.std.resid, xlab = 'fitted value', ylab = 'studentized residual', main = 'Studentized residuals vs fitted values')
 par(mfrow=c(1,1))
 ```
-**Figure.3 **
+**Figure.3 Cook's Distance and Studentized residuals vs fitted values plot**
 
-### Multicollinearity
-
-Multicollinearity is an important issue in regression analysis and should be fixed by removing the concerned variables. As a rule of thumb, a VIF value that exceeds 10 indicates a problematic amount of collinearity. In our model, only the variable `emp.var.rate` has a VIF value larger than 10, indicating a problem of collinearity.
+Multicollinearity is an important issue in regression analysis and should be fixed by removing the concerned variables. As a rule of thumb, a VIF value that exceeds 10 indicates a problematic amount of collinearity. In our model, only the variable `emp.var.rate` has a VIF value a little larger than 10. However, it will not influence the accuracy of prediection, so we keep it in model.
 
 ```{r, results='hide'}
 car::vif(logist)
 ```
-**Table.2 **
 
-|   Fit   | job  |  contact  |  month  |  day_of_week | campaign | poutcome | emp.var.rate | cons.price.idx | cons.conf.idx | nr.employed |
-|------|------|-----------|---------| -------------|----------|----------|--------------|----------------|---------------|-------------|
+**Table.2 VIF value for logistic model**
+
+|   Fit   | job  |  contact  |  month  | week | campaign | poutcome | emp.var.rate | cons.price.idx | cons.conf.idx | nr.employed |
+|--|--|---|---|---|----|-----|--------|--------|--------|-------|
 | VIF | 1.01  | 1.54 | 1.20 | 1.01  | 1.02 | 1.07 | 11.99 | 7.31 | 1.61 | 8.67 |
 
 
@@ -348,8 +315,14 @@ confusionMatrix(bag.pred, test$y)
 | Predicted  |no | 3628 | 321| |  Predicted  |no | 3573 | 286 |
 | Predicted  |yes| 71 | 99| | Predicted  |yes| 126 | 134 |
 
+**Table.4  Specificity, sensitivity and accuracy for each model in the test Bank Marketing Dataset.**  
 
-Table 3 is about the confusion table between fited value and true bvalue in logistic regression and rondom forest. The AUC for each model is presented in Figure 4. The highest is obtained with the logistic regression model. Table 5 shows some measures that include specificity, sensitivity, and accuracy in different models. The logistic regression model has a higher sensitivity and accuracy, and the random forest model has a higher specificity. Both of them have a good sensitivity, true positive rate, but a bad specificity, true negative rate, which means that these classifiers rarely overlook people who will subscribe to a term deposit. Still, they are more likely to consider people who have no intention to subscribe to a term deposit are prone to subscribe to it in the future. From the above, it shows that the logistic regression model has a better performance compared to the random forest model.
+| Model | Specificity | Sensitivity | Accuracy |
+|------|-----------|---------|---------|
+|Logistic regression|  0.2357    |   **0.9808** |  **0.9048**   |
+|Random forest|    **0.3167**   |  0.9654   |   0.8992   |
+
+Table 3 is about the confusion table between fited value and true bvalue in logistic regression and rondom forest. Table 4 shows some measures that include specificity, sensitivity, and accuracy in different models. The logistic regression model has a higher sensitivity and accuracy, and the random forest model has a higher specificity. Both of them have a good sensitivity, true positive rate, but a bad specificity, true negative rate, which means that these classifiers rarely overlook people who will subscribe to a term deposit. Still, they are more likely to consider people who have no intention to subscribe to a term deposit are prone to subscribe to it in the future. From the above, it shows that the logistic regression model has a better performance compared to the random forest model. The AUC for each model is presented in Figure 4. The highest is obtained with the logistic regression model.
 
 ```{r,,fig.width=8, fig.height=3}
 par(mfrow = c(1, 2))
@@ -371,12 +344,6 @@ plot.roc(roc(test$y, as.numeric(predict(bag, test)))
 ```
 **Figure.4 ROC curve for each model (in the test) with respective AUC and thresholds.**
 
-**Table.5  Specificity, sensitivity and accuracy for each model in the test Bank Marketing Dataset.**  
-
-| Model | Specificity | Sensitivity | Accuracy |
-|------|-----------|---------|---------|
-|Logistic regression|  0.2357    |   **0.9808** |  **0.9048**   |
-|Random forest|    **0.3167**   |  0.9654   |   0.8992   |
 
 # Discussion
 
