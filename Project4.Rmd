@@ -13,7 +13,8 @@ body{ /* Normal  */
       font-size: 18px;
   }
 </style>
-```{r setup, include=FALSE}
+
+```{r set up, include=FALSE}
 library(knitr)
 
 opts_chunk$set(size='small'
@@ -377,4 +378,3 @@ This Document is the project 3 of Team 7 in STA 207, Winter 2020.
 4. Jian Shi jnshi@ucdavis.edu contribution: model diagnose
 
 The repository in Github is on https://github.com/yhli097/STA207Project4.git
-
