@@ -33,6 +33,7 @@ opts_chunk$set(size='small'
 ```
 ```{r}
 library(MASS)
+library(dplyr)
 library(e1071)
 library(klaR)
 library(FNN)
@@ -42,21 +43,21 @@ library(partykit)
 library(pROC)
 library(latticeExtra)
 library(caret)
+library(broom)
 ```
 # Introduction
 ## Background
 
+Marketing selling campaigns constitute a typical strategy to enhance business. Companies use direct marketing when targeting segments of customers by contacting them to meet a specific goal. Telephone (fixed-line or mobile) is one of the most widely used. Technology enables rethinking marketing by focusing on maximizing customer lifetime value through the evaluation of available information and customer metrics, thus allowing us to build longer and tighter relations in alignment with business demand [1].
 
+The dataset is downloaded from UCI Machine Learning Repository and is related to direct marketing campaigns of a Portuguese Banking institution [2]. These campaigns were based on phone calls. Often, more than one calls were done to the same client to access if their product “term deposit” will be subscribed (yes) or not subscribed (no). There were 4 datasets in it from which bank-additional-full.csv is used that has all examples (41188) and 20 inputs ordered by date (from May 2008 to November 2010). There are 20 input variables and 1 output variable (desired target).  These dataset attributes denote customer data, socio-economic data, telemarketing data and some other data. Some attributes are numerical, and some are categorical. The dataset was loaded in R Studio and checked for any missing values using is.na function and found that it didn’t have any missing values, so we have a clean dataset. 
 
 ## Statistical questions of interest
 
-
+Our main goal is to build prediction models based on the data set to predict response variables, which a customer would subscribe bank long-term deposit or not. Based on all 20 variables from the data set, we need to select the variables by stepwise method to build models. After that, we divide the data into training data and test data. We will fit two models through training data, including logistics regression model and random forest, respectively. Then, we will test the models on test data. Our interest in this project is to calculate the prediction accuracy of these two models and compare the gap performance of the two models. 
 
 # Analysis Plan
 
-## Population and study design
-
-The dataset is downloaded from UCI Machine Learning Repository and is related to direct marketing campaigns of a Portuguese Banking institution. These campaigns were based on phone calls. Often, more than one calls were done to the same client to access if their product “term deposit” will be subscribed (yes) or not subscribed(no). This dataset is available at http://archive.ics.uci.edu/ml/datasets/Bank+Marketing. There were 4 datasets in it from which bank-additional-full.csv is used that has all examples (41188) and 20 inputs ordered by date (from May 2008 to November 2010). There are 20 input variables and 1 output variable (desired target).  These dataset attributes denote customer data, socio-economic data, telemarketing data and some other data. Some attributes are numerical, and some are categorical. The dataset was loaded in R Studio and checked for any missing values using is.na function and found that it didn’t have any missing values, so we have a clean dataset. 
 
 ## Descriptive Analysis
 
@@ -95,25 +96,26 @@ not subscribed, we used logistic regression and random forest. As mentioned befo
 
 ### Logistic Regression
 
-The GLM is a flexible generalization of ordinary linear regression that allows
-responses with error distribution models other than a normal distribution. The GLM
-generalizes linear regression by allowing the linear model to be related to the
-response via a link function. In a GLM each outcome \(Y\) of the response is
-assumed to be generated from a particular distribution in the exponential family,
-a large range of probability distributions. The mean, \(\mu\), of the distribution
-depends on the features, \(X\), through: \({\rm E}(Y) = \boldsymbol{\mu} = g^{-1}(X \boldsymbol{\beta})\), where \({\rm E}(Y)\) is the expected value of \(Y\); \(X \boldsymbol{\beta}\) is the linear predictor, a linear combination of unknown parameters
-\(\boldsymbol{\beta}\); \(g\) is the link function. The unknown parameters,
-\(\boldsymbol{\beta}\), are typically estimated with maximum likelihood.
+The main goal of our project is to predict whether the client has subscribed a term deposit. In other words, the response variable has a binary outcome. Therefore, we decide to choose the logistic model to fit the dataset. The model is given as follows:
 
-When the response data, \(Y\), are binary (taking on only values 0 and 1), the
-distribution function is generally chosen to be the Bernoulli distribution and the
-interpretation of \(\mu_{i}\) is then the probability, \(p\), of \(Y_{i}\) taking
-on the value one. The logit \(g(p) = \ln \left({p \over 1 - p} \right)\) is the canonical link function and when used the resulting model is called of logistic regression. 
+$${\displaystyle \log{\frac{p}{1-p}}=\beta_{0}+\beta_{1}x_{1}+\beta_{2}x_{2}+\cdots +\beta_{n}x_{n}}$$
+
+where $p(x)$ is the probability that the dependent variable equals a case, given some linear combination of the predictors; $x_i, i=1,\cdots,n$ is the predict variables; $\beta_{0}$ is the intercept from the linear regression equation and $\beta_i, i=1,\cdots,n$ is the regression coefficient.
+
+- The outcome is a binary or dichotomous variable like yes vs no, positive vs negative, 1 vs 0.
+
+- There is no influential values (extreme values or outliers) in the continuous predictors.
+
+- There is no high intercorrelations (i.e. multicollinearity) among the predictors.
 
 To test the significance of the features we use the Akaike information criterion
 (AIC). Given a collection of models, the AIC estimates the quality of each model,
 relative to each of the other models. Thus, AIC provides a means for model 
 selection.
+
+## Model Diagnostic
+
+According to the assumptions of the logistic model, we will first check if the outcome is binary. Influential values are extreme individual data points that can alter the quality of the logistic regression model. So, Cook's Distance plot and Studentized Residual plot will be figured to find whether there are influential values and outliers in the dataset. Finally, Multicollinearity will be considered by VIF values becuase it corresponds to a situation where the data contain highly correlated predictor variables.
 
 ### Random Forest
 
@@ -282,29 +284,72 @@ logist <- glm(y ~ ., family = binomial, train) ; logist <- stepAIC(logist)
 summary(logist)
 ```
 
-```{r}
+From fifteen features, logistic regression model finished with nine: `job`, `contact`, `month`, `day_of_week`, `campaign`, `poutcome`, `emp.var.rate`, `cons.price.idx`, `cons.conf.idx` and `nr.employed`. Keeping a variable means that the feature was statistically significant, in describing the difference between the classes of the desired target - if the bank term deposit would be or not subscribed.
+
+```{r, results='hide'}
 logist.pred<-predict(logist,test,"response")
 logist.pred<-as.factor(ifelse(logist.pred<=0.5, "no", "yes"))
 # Confusion matrix
 confusionMatrix(logist.pred, test$y)
 ```
 
-Accuracy : 0.9048; Sensitivity : 0.9808; Specificity : 0.2357.
-
 ## Model Diagnostics
 
-## Random Forest
+
+### Binary outcome
+
+Our desired target `y` means that whether the client has subscribed a term deposit or not. Therefore, the outcome satisfies the binary outcome assumption.  
+
+### Influential values
+
+Influential values are extreme individual data points that can alter the quality of the logistic regression model. The Cook's distances are much smaller than 1, meaning that there is not influential case in the dataset. To check whether the data contains potential outliers, the standardized residual error can be inspected. If an observation has an externally studentized residual that is larger than 3 (in absolute value), we can call it an outlier. Therefore, from the plot, we can verify that there is none outliers in the dataset [olsrr].
 
 ```{r}
+par(mfrow=c(1,2))
+plot(logist, which = 4, id.n = 15)
+model.data <- augment(logist) %>% 
+  mutate(index = 1:n())
+plot(model.data$.fitted, model.data$.std.resid, xlab = 'fitted value', ylab = 'studentized residual', main = 'Studentized residuals vs fitted values')
+par(mfrow=c(1,1))
+```
+**Figure.3 **
+
+### Multicollinearity
+
+Multicollinearity is an important issue in regression analysis and should be fixed by removing the concerned variables. As a rule of thumb, a VIF value that exceeds 10 indicates a problematic amount of collinearity. In our model, only the variable `emp.var.rate` has a VIF value larger than 10, indicating a problem of collinearity.
+
+```{r, results='hide'}
+car::vif(logist)
+```
+**Table.2 **
+
+|   Fit   | job  |  contact  |  month  |  day_of_week | campaign | poutcome | emp.var.rate | cons.price.idx | cons.conf.idx | nr.employed |
+|------|------|-----------|---------| -------------|----------|----------|--------------|----------------|---------------|-------------|
+| VIF | 1.01  | 1.54 | 1.20 | 1.01  | 1.02 | 1.07 | 11.99 | 7.31 | 1.61 | 8.67 |
+
+
+## Comparison between Logistic Regression and Random Forest
+
+```{r, cache=TRUE}
 bag <- randomForest(x = train[, -17], y = train[ , 17], importance = FALSE)
 ```
 
-```{r}
+```{r, results='hide'}
 bag.pred<-predict(bag, test)
 # Confusion matrix
 confusionMatrix(bag.pred, test$y)
 ```
-Accuracy : 0.8992; Sensitivity : 0.9654; Specificity : 0.3167.
+
+**Table.3 Confusion table between prediction and true value in logistic regression and rondom forest**
+
+| logistic regression | |  True | True | | random forest | |  True | True |
+|-----|--|--|--|----|----|--|--|--|
+|     | | no | yes | | | | no | yes |
+| Predicted  |no | 3628 | 321| |  Predicted  |no | 3573 | 286 |
+| Predicted  |yes| 71 | 99| | Predicted  |yes| 126 | 134 |
+
+
+Table 3 is about the confusion table between fited value and true bvalue in logistic regression and rondom forest. The AUC for each model is presented in Figure 4. The highest is obtained with the logistic regression model. Table 5 shows some measures that include specificity, sensitivity, and accuracy in different models. The logistic regression model has a higher sensitivity and accuracy, and the random forest model has a higher specificity. Both of them have a good sensitivity, true positive rate, but a bad specificity, true negative rate, which means that these classifiers rarely overlook people who will subscribe to a term deposit. Still, they are more likely to consider people who have no intention to subscribe to a term deposit are prone to subscribe to it in the future. From the above, it shows that the logistic regression model has a better performance compared to the random forest model.
 
 ```{r,,fig.width=8, fig.height=3}
 par(mfrow = c(1, 2))
@@ -324,20 +369,18 @@ plot.roc(roc(test$y, as.numeric(predict(bag, test)))
          , auc.polygon = TRUE, max.auc.polygon = TRUE)
 
 ```
-**Figure.3 ROC curve for each model (in the test) with respective AUC and thresholds.**
+**Figure.4 ROC curve for each model (in the test) with respective AUC and thresholds.**
 
+**Table.5  Specificity, sensitivity and accuracy for each model in the test Bank Marketing Dataset.**  
+
+| Model | Specificity | Sensitivity | Accuracy |
+|------|-----------|---------|---------|
+|Logistic regression|  0.2357    |   **0.9808** |  **0.9048**   |
+|Random forest|    **0.3167**   |  0.9654   |   0.8992   |
 
 # Discussion
 
-Keep a feature means that the feature was statistically significant,
-in describing the difference between the classes of the desired target - if the
-bank term deposit would be or not subscribed. Logistic regression model finished with nine, from fifteen features. This are the
-dropped, nonsignificant in describing the difference between classes, features in
-all models: `age`, `marital` status, `education`,
-`housing` loan, personal `loan`, and `previous` number of
-contacts performed before this campaign and for this client.
 
-Looking by the AUC, Figure 3, logistic regression is better than random forest. 
 
 
 \pagebreak
@@ -346,9 +389,13 @@ Looking by the AUC, Figure 3, logistic regression is better than random forest.
 
 [1] [Moro et al., 2014] S. Moro, P. Cortez and P. Rita. A Data-Driven Approach to Predict the Success of Bank Telemarketing. Decision Support Systems, Elsevier, 62:22-31, June 2014
 
+[2] Bank Marketing Data Set. UCI machine learning repository. https://archive.ics.uci.edu/ml/datasets/Bank+Marketing.
+
 [randomForest] Liaw, A. & Wiener M. (2002). Classification and Regression by randomForest. R News 2(3), 18--22. http://CRAN.R-project.org/doc/Rnews/.
 
 [pROC] Robin, X., Turck, N., Hainard, etc. (2011). pROC: an open-source package for R and S+ to analyze and compare ROC curves. BMC Bioinformatics, 12, p. 77. DOI: 10.1186/1471-2105-12-77. http://www.biomedcentral.com/1471-2105/12/77/.
+
+[olsrr] https://cran.r-project.org/web/packages/olsrr/vignettes/influence_measures.html
 
 # Appendix II. Group Partners
 
