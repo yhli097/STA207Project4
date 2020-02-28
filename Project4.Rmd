@@ -56,7 +56,7 @@ The dataset is downloaded from UCI Machine Learning Repository and is related to
 
 ## Statistical questions of interest
 
-Our main goal is to build prediction models based on the data set to predict response variables, which a customer would subscribe bank long-term deposit or not. Based on all 20 variables from the data set, we need to select the variables by stepwise method to build models. After that, we divide the data into training data and test data. We will fit two models through training data, including logistics regression model and random forest, respectively. Then, we will test the models on test data. Our interest in this project is to calculate the prediction accuracy of these two models and compare the gap performance of the two models. 
+Our main goal is to build prediction models based on the data set to predict response variables, which a customer would subscribe to a bank long-term deposit or not. Based on all 20 variables from the dataset, we divide the data into training data and test data. After that, we select variables by stepwise method to build models. We will fit two models through training data, including the logistics regression model and the random forest, respectively. Then, we will test the models on test data. Our interest in this project is to calculate the prediction accuracy of these two models and compare the gap performance of the two models. 
 
 # Analysis Plan
 
@@ -88,7 +88,7 @@ Our main goal is to build prediction models based on the data set to predict res
 |`euribor3m`| Daily euribor 3-month rate | numeric |
 |`nr.employed`| Quarterly number of employees | numeric |
  
-By description, `duration` should only be included for benchmark purposes and should be discarded if the intention is to have a realistic predictive model. So this attribute highly affects the output target. More than 95% values in `pdays` are 999, which means client was not previously contacted. Only 3 cases are `yes` in `default`, and more than 20% are unknown. So we remove these three variables. 
+By description, `duration` should only be included for benchmark purposes and should be discarded if the intention is to have a realistic predictive model, so this attribute highly affects the output target. More than 95% values in `pdays` are 999, which means client was not previously contacted. Only 3 cases are `yes` in `default`, and more than 20% are unknown. Thus, we remove these three variables. 
 
 ## Predictive Model
 
@@ -103,16 +103,16 @@ $${\displaystyle \log{\frac{p}{1-p}}=\beta_{0}+\beta_{1}x_{1}+\beta_{2}x_{2}+\cd
 
 where $p(x)$ is the probability that the dependent variable equals a case, given some linear combination of the predictors; $x_i, i=1,\cdots,n$ is the predict variables; $\beta_{0}$ is the intercept from the linear regression equation and $\beta_i, i=1,\cdots,n$ is the regression coefficient.
 
-Model assumptions: (1) The outcome is a binary or dichotomous variable like yes vs no, positive vs negative, 1 vs 0; (2) There is no influential values (extreme values or outliers) in the continuous predictors; (3) There is no high intercorrelations (i.e. multicollinearity) among the predictors.
+Model assumptions: (1) The outcome is a binary or dichotomous variable like yes or no, positive or negative, 1 or 0; (2) There is no influential value (extreme values or outliers) in the continuous predictors; (3) There is no high intercorrelations (i.e. multicollinearity) among the predictors.
 
 To test the significance of the features we use the Akaike information criterion
 (AIC). Given a collection of models, the AIC estimates the quality of each model,
-relative to each of the other models. Thus, AIC provides a means for model 
+relative to each of the other models. Therefore, AIC provides a mean for model 
 selection.
 
 ### Model Diagnostic
 
-According to the assumptions of the logistic model, we will first check if the outcome is binary. Influential values are extreme individual data points that can alter the quality of the logistic regression model. So, Cook's Distance plot and Studentized Residual plot will be figured to find whether there are influential values and outliers in the dataset. Finally, Multicollinearity will be considered by VIF values becuase it corresponds to a situation where the data contain highly correlated predictor variables.
+According to the assumptions of the logistic model, we will first check if the outcome is binary. Influential values are extreme individual data points that can alter the quality of the logistic regression model. Therefore, Cook's Distance plot and Studentized Residual plot will be figured to find whether there are influential values and outliers in the dataset. Finally, Multicollinearity will be considered by VIF values becuase it corresponds to a situation where the data contain highly correlated predictor variables.
 
 ### Random Forest
 
@@ -127,7 +127,7 @@ learning algorithm that selects, at each candidate split in the learning process
 a random subset of the features. Tree bagging repeatedly selects a random sample
 with replacement of the training set and fits trees to these samples. This
 bootstrapping procedure leads to better model performance because it decreases the
-variance of the model, without increasing the bias. In R, the main implementation of random forest is found in the randomForest library [randomForest].
+variance of the model, without increasing the bias. In R, the main implementation of random forest is found in the randomForest library [3].
 
 ## Comparison
 
@@ -136,7 +136,7 @@ Receiver Operating Characteristic curve, i.e. ROC curve. A graphical plot that
 illustrates the diagnostic ability of a binary classifier system as its
 discrimination threshold is varied. The ROC curve is created by plotting the 
 specificity, true negative rate, against the sensitivity, true positive rate, at
-various threshold settings. In R, the main implementation of the ROC curve is found in the pROC library [pROC].
+various threshold settings. In R, the main implementation of the ROC curve is found in the pROC library [4].
 
 When dealing with ROC curves the main measure returned is the Area Under the Curve
 (AUC), that is qual to the probability that a classifier will rank a randomly
@@ -191,11 +191,11 @@ In Figure 1 we see the two-by-two correlations for all the eight numerical featu
 ```{r}
 data <- data[,-c(16,19)]
 ```
-```{r,fig.width=9, fig.height=6}
+```{r,fig.width=10, fig.height=6}
 barras <- function(variable, nome, limite) {
   da = table(variable)
   barchart(sort(da)
-           , col = "orange"
+           , col = "skyblue"
            , border = "transparent"
            , xlab = NULL
            , main = nome
@@ -258,20 +258,20 @@ logist <- glm(y ~ ., family = binomial, train) ; logist <- stepAIC(logist)
 summary(logist)
 ```
 
-From fifteen features, logistic regression model finished with nine: `job`, `contact`, `month`, `day_of_week`, `campaign`, `poutcome`, `emp.var.rate`, `cons.price.idx`, `cons.conf.idx` and `nr.employed`. Keeping a variable means that the feature was statistically significant, in describing the difference between the classes of the desired target - if the bank term deposit would be or not subscribed.
+From fifteen features, logistic regression model finished with nine: `job`, `contact`, `month`, `day_of_week`, `campaign`, `poutcome`, `emp.var.rate`, `cons.price.idx`, `cons.conf.idx` and `nr.employed`. Keeping a variable means that the feature is statistically significant, in describing the difference between the classes of the desired target - if the bank term deposit would be or not subscribed. The fitted value on test data and the performance will be discussed together with the result from random forest in section 3.4.
 
 ```{r, results='hide'}
 logist.pred<-predict(logist,test,"response")
-logist.pred<-as.factor(ifelse(logist.pred<=0.5, "no", "yes"))
+logist.pred<-factor(ifelse(logist.pred<=0.5, "no", "yes"),levels = c("yes", "no"))
 # Confusion matrix
-confusionMatrix(logist.pred, test$y)
+confusionMatrix(factor(test$y,levels = c("yes", "no")),logist.pred)
 ```
 
 ## Model Diagnostics
 
 Our desired target `y` means that whether the client has subscribed a term deposit or not. Therefore, the outcome satisfies the binary outcome assumption.  
 
-Influential values are extreme individual data points that can alter the quality of the logistic regression model. The Cook's distances are much smaller than 1, meaning that there is not influential case in the dataset. To check whether the data contains potential outliers, the standardized residual error can be inspected. If an observation has an externally studentized residual that is larger than 3 (in absolute value), we can call it an outlier. Therefore, from the plot, we can verify that there is none outliers in the dataset [olsrr].
+Influential values are extreme individual data points that can alter the quality of the logistic regression model. The Cook's distances are much smaller than 1, meaning that there is not influential case in the dataset. To check whether the data contains potential outliers, the standardized residual error can be inspected. If an observation has an externally studentized residual that is larger than 3 (in absolute value), we can call it an outlier. Therefore, from the plot, we can verify that there is none outliers in the dataset [5].
 
 ```{r, fig.width=8, fig.height=3}
 par(mfrow=c(1,2))
@@ -303,27 +303,26 @@ bag <- randomForest(x = train[, -17], y = train[ , 17], importance = FALSE)
 ```
 
 ```{r, results='hide'}
-bag.pred<-predict(bag, test)
+bag.pred<-factor(predict(bag, test),levels=c("yes","no"))
 # Confusion matrix
-confusionMatrix(bag.pred, test$y)
+confusionMatrix(factor(test$y,levels = c("yes","no")),bag.pred)
 ```
+Table 3 is the confusion table between fited value and true value for test data in logistic regression and random forest model. Table 4 shows accuracy, specificity and sensitivity in different models. The logistic regression model has a higher sensitivity, and the random forest model has a slightly higher specificity. Moreover, the accuracy of them are nearly the same. Both of them have a good specificity (i.e. true negative rate), but a not good sensitivity (i.e. true positive rate), which means that these classifiers rarely register "yes" for people who have no intention to a term deposit. Moreover, they are more likely to overlook people who are willing to subscribe to a term deposit and predict that they do not subscribe it. The AUC for each model is presented in Figure 4. The highest is obtained with the logistic regression model. From the above, it shows that the logistic regression model has a better performance than the random forest model.
 
 **Table.3 Confusion table between prediction and true value in logistic regression and rondom forest**
 
 | logistic regression | |  True | True | | random forest | |  True | True |
 |-----|--|--|--|----|----|--|--|--|
-|     | | no | yes | | | | no | yes |
-| Predicted  |no | 3628 | 321| |  Predicted  |no | 3573 | 286 |
-| Predicted  |yes| 71 | 99| | Predicted  |yes| 126 | 134 |
+|     | | yes | no | | | | yes | no |
+| Predicted  |yes | 99 | 321| |  Predicted  |yes | 134 | 286 |
+| Predicted  |no| 71 | 3628 | | Predicted  |no| 126 | 3573 |
 
 **Table.4  Specificity, sensitivity and accuracy for each model in the test Bank Marketing Dataset.**  
 
-| Model | Specificity | Sensitivity | Accuracy |
+| Model |  Accuracy | Specificity | Sensitivity |
 |------|-----------|---------|---------|
-|Logistic regression|  0.2357    |   **0.9808** |  **0.9048**   |
-|Random forest|    **0.3167**   |  0.9654   |   0.8992   |
-
-Table 3 is about the confusion table between fited value and true bvalue in logistic regression and rondom forest. Table 4 shows some measures that include specificity, sensitivity, and accuracy in different models. The logistic regression model has a higher sensitivity and accuracy, and the random forest model has a higher specificity. Both of them have a good sensitivity, true positive rate, but a bad specificity, true negative rate, which means that these classifiers rarely overlook people who will subscribe to a term deposit. Still, they are more likely to consider people who have no intention to subscribe to a term deposit are prone to subscribe to it in the future. From the above, it shows that the logistic regression model has a better performance compared to the random forest model. The AUC for each model is presented in Figure 4. The highest is obtained with the logistic regression model.
+|Logistic regression| **0.9048**   | 0.9187    |   **0.5824** |  
+|Random forest|  0.8992 | **0.9259**   |  0.5154   |  
 
 ```{r,,fig.width=8, fig.height=3}
 par(mfrow = c(1, 2))
@@ -348,7 +347,9 @@ plot.roc(roc(test$y, as.numeric(predict(bag, test)))
 
 # Discussion
 
+Looking from the above, we find that the performance of two models in accuracy and specificity is nearly consistent. However, the sensitivity of the logistics model is higher than of the random forest model. From literature [6], it found that when increasing the variance in the explanatory and noise variables, logistic regression consistently performed with higher overall accuracy compared to random forest. The logistic regression performs better when the number of noise variables is less than or equal to the number of explanatory variables, and it has a higher true positive rate. In our case, the VIF value of all variables is less than 10 except `emp.var.rate` whose value is slightly greater than 10. Moreover, the proportion of noise variables, including campaign, p-days, previous and poutcome is relatively small. Therefore, it explains the consistent performance in accuracy and specificity and the gap in sensitivity.
 
+It should be noticed that our dataset is unbalanced, and over 85% observations where value of y is `no`. Under the situation of unbalanced data, the predictive results are not accurate. Also, the sensitivity is not good in unbalanced data [6]. To solve this issue, we can undersample the majority class method to deal with it in further investigation.
 
 
 \pagebreak
@@ -359,22 +360,24 @@ plot.roc(roc(test$y, as.numeric(predict(bag, test)))
 
 [2] Bank Marketing Data Set. UCI machine learning repository. https://archive.ics.uci.edu/ml/datasets/Bank+Marketing.
 
-[randomForest] Liaw, A. & Wiener M. (2002). Classification and Regression by randomForest. R News 2(3), 18--22. http://CRAN.R-project.org/doc/Rnews/.
+[3] Liaw, A. & Wiener M. (2002). Classification and Regression by randomForest. R News 2(3), 18--22. http://CRAN.R-project.org/doc/Rnews/.
 
-[pROC] Robin, X., Turck, N., Hainard, etc. (2011). pROC: an open-source package for R and S+ to analyze and compare ROC curves. BMC Bioinformatics, 12, p. 77. DOI: 10.1186/1471-2105-12-77. http://www.biomedcentral.com/1471-2105/12/77/.
+[4] Robin, X., Turck, N., Hainard, etc. (2011). pROC: an open-source package for R and S+ to analyze and compare ROC curves. BMC Bioinformatics, 12, p. 77. DOI: 10.1186/1471-2105-12-77. http://www.biomedcentral.com/1471-2105/12/77/.
 
-[olsrr] https://cran.r-project.org/web/packages/olsrr/vignettes/influence_measures.html
+[5] Measures of Influence. https://cran.r-project.org/web/packages/olsrr/vignettes/influence_measures.html.
+
+[6] Kirasich, Kaitlin; Smith, Trace; and Sadler, Bivin (2018) "Random Forest vs Logistic Regression: Binary Classification for Heterogeneous Datasets," SMU Data Science Review: Vol. 1 : No. 3 , Article 9. Available at: https://scholar.smu.edu/datasciencereview/vol1/iss3/9.
 
 # Appendix II. Group Partners
 
-This Document is the project 3 of Team 7 in STA 207, Winter 2020.
+This Document is the project 4 of Team 7 in STA 207, Winter 2020.
 
-1. Bingdao Chen bdchen@ucdavis.edu contribution: descriptive analysis and model establishment
+1. Bingdao Chen bdchen@ucdavis.edu contribution: random forest
 
-2. Yahui Li yhuli@ucdavis.edu contribution: casual inference and conclusion
+2. Yahui Li yhuli@ucdavis.edu contribution: descriptive analysis
 
-3. Zihan Wang zihwang@ucdavis.edu contribution: fixed effects model
+3. Zihan Wang zihwang@ucdavis.edu contribution: background
 
-4. Jian Shi jnshi@ucdavis.edu contribution: model diagnose
+4. Jian Shi jnshi@ucdavis.edu contribution: logistic model
 
 The repository in Github is on https://github.com/yhli097/STA207Project4.git
